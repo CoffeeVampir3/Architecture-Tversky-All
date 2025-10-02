@@ -55,3 +55,14 @@ Weight decay can keep our ranges small and acts as regularization. We end up in 
 ### Other notes:
 **Torch compile** — breaks for this specific version. Looking into it, but the combination of amp bf16 training is not playing nicely with torch compile and the tversky implementation for some reason.
 **Torch compile** — Using a non-linear head means we cannot utilize linear cross entropy loss from cut your losses paper. This means we must substantially shrink the batch size as the memory required goes up a lot. So I personally like the idea of using this for O projections in the practical case with a linear head to utilize the linear cross entropy (it's a difference of 16 batch size on this network VS 64 with linear cross entropy on my hardware)
+
+
+## To train:
+```
+uv run python main.py
+```
+
+Inference on resulting model:
+```
+uv run python basic_inf.py
+```
