@@ -7,7 +7,7 @@ Paper: https://arxiv.org/abs/2506.11035
 ### Vibe Check:
 After substantial experimenting with this I'm convinced it will become a mainstay in some styles of neural networks. It is computable, nearly or as fast as equivalent linears, has nice properties as a result of sharable features and the paper claims they're interpretable which is a huge boon over linear layers. In some of my tests tversky layers soundly beats equivalent linears, and in most cases the outcomes are at least similar. Anyone interest in neural networks should at least give these a serious consideration, especially because they're simple and easy. Feel free to use the TverskyLayer code as you see fit.
 
-In terms of this actual network, this Tversky-All variant achieved a final loss (on 10% of the data) of about ~2. This is on par with equivalent linear version that ended at about ~2.2 final loss. 
+In terms of this actual network, this Tversky-All variant achieved a final loss (on 10% of the data) of about ~2. This is on par with equivalent linear version that ended at about ~2.2 final loss.
 
 ### Key departures from the paper:
 
@@ -19,7 +19,7 @@ In terms of this actual network, this Tversky-All variant achieved a final loss 
 
 **SwiGLU MLP** — MLP using Llama 3 swiglu formulation.
 
-**Assumptions** — I made assumptions in many places where the paper doesn't specify exact details. 
+**Assumptions** — I made assumptions in many places where the paper doesn't specify exact details.
 
 Basically, this is a substantially different than the GPT2 model in the paper.
 
@@ -45,8 +45,11 @@ The equivalent model using just linears can learn to represent positional inform
 
 ### Initialization is INSANELY important.
 The values for initialization were very hard to arrive at and were a combination of inspection of variance and also experimentation.
+
 **alpha > beta** — The paper notes that the tversky alpha learned to be > beta in their experiments. I forced this in initialization giving A a larger value than B.
+
 **Shared Features** — This is shared by nearly the whole network. Bad initial values literally kills the entire net. Zeroes might be workable given a high initial LR but I found the `[-.1, .1]` uniform to work the best here. This value is absolutely critical to tune correctly. It's important to note that this initialization is strongly tied to the tanh's approximate value range, at around 13 sharpness we can support something like `[-.3, .3]` dot products with nice gradients so we want to at least start in differentiable segments of the tanh approx.
+
 **Prototypes** — For similar reasons as shared features, uniform between `[-0.15, .15]` ended up being very nice here.
 
 ### Weight Decay Can Save Neurons from Death
@@ -54,6 +57,7 @@ Weight decay can keep our ranges small and acts as regularization. We end up in 
 
 ### Other notes:
 **Torch compile** — breaks for this specific version. Looking into it, but the combination of amp bf16 training is not playing nicely with torch compile and the tversky implementation for some reason.
+
 **Torch compile** — Using a non-linear head means we cannot utilize linear cross entropy loss from cut your losses paper. This means we must substantially shrink the batch size as the memory required goes up a lot. So I personally like the idea of using this for O projections in the practical case with a linear head to utilize the linear cross entropy (it's a difference of 16 batch size on this network VS 64 with linear cross entropy on my hardware)
 
 
