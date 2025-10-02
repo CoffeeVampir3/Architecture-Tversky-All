@@ -12,15 +12,20 @@ In terms of this actual network, this Tversky-All variant achieved a final loss 
 ### Key departures from the paper:
 
 **Llama-Like** — This is closer to a llama/llama3 model than GPT2, although we are using the GPT2 tokenizer still. See the architectural diagram.
+
 **No Rope or Positional Encodings** — Positional encoding are learned. See nope paper <https://arxiv.org/abs/2404.12224>
+
 **Weight-decayed Zero Centered RMS Norm** — Inspired from Qwen 3 Next
+
 **SwiGLU MLP** — MLP using Llama 3 swiglu formulation.
+
 **Assumptions** — I made assumptions in many places where the paper doesn't specify exact details. 
 
 Basically, this is a substantially different than the GPT2 model in the paper.
 
 ### Key points from the paper:
 **Tversky-All Setup** — This implements the Tversky-All strategy from the paper. In partciular, that means the output projections from MHA are tversky layers and the output head of the LLM is similarly a tversky layer. Notably, all tversky layers share the same feature bank. (Including the head, literally all of them share these.)
+
 **Ignorematch with Product Intersection** — The particular variant of tversky is ignorematch with product intersections. I've also opted to use a slightly approximate tanh with sharpness over the binary mask in the paper.
 
 ### Why Approximate Tanh over Binary Mask?
