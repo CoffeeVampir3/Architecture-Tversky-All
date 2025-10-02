@@ -1,0 +1,28 @@
+<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect width="400" height="300" fill="white"/>
+
+    <!-- Grid lines -->
+    <line x1="50" y1="50" x2="50" y2="250" stroke="#ddd" stroke-width="1"/>
+    <line x1="50" y1="250" x2="350" y2="250" stroke="#ddd" stroke-width="1"/>
+    <line x1="50" y1="150" x2="350" y2="150" stroke="#ddd" stroke-width="1" stroke-dasharray="2,2"/>
+
+    <!-- Axes -->
+    <line x1="50" y1="50" x2="50" y2="250" stroke="black" stroke-width="2"/>
+    <line x1="50" y1="250" x2="350" y2="250" stroke="black" stroke-width="2"/>
+
+    <!-- Binary mask step function -->
+    <path d="M 50 250 L 200 250 L 200 50 L 350 50" fill="none" stroke="#e74c3c" stroke-width="3"/>
+
+    <!-- Y-axis labels -->
+    <text x="35" y="55" font-family="Arial" font-size="12" text-anchor="end">1</text>
+    <text x="35" y="255" font-family="Arial" font-size="12" text-anchor="end">0</text>
+
+    <!-- X-axis labels -->
+    <text x="50" y="270" font-family="Arial" font-size="12" text-anchor="middle">-2</text>
+    <text x="200" y="270" font-family="Arial" font-size="12" text-anchor="middle">0</text>
+    <text x="350" y="270" font-family="Arial" font-size="12" text-anchor="middle">2</text>
+
+    <!-- Legend -->
+    <text x="200" y="30" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">Binary Mask</text>
+</svg>
