@@ -232,9 +232,10 @@ def main():
 
     model = CoolLanguageModelWowExclamationMark(config)
 
-    # model.compile(
-    #     mode="reduce-overhead",
-    # )
+    model.compile(
+        #mode="reduce-overhead",
+        backend="aot_eager_decomp_partition",
+    )
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     train(model, train_dataset, tokenizer)
