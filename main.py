@@ -9,6 +9,7 @@ from tqdm import tqdm
 from torch.amp import autocast
 from safetensors.torch import save_model, load_model
 
+from utils.trainutils import count_parameters_layerwise, TBLogger
 from modeling.model import CoolLanguageModelWowExclamationMark, ModelConfig
 from modeling.zRMSNorm import ZeroCenteredRMSNorm
 from modeling.TverskyLayer import TverskyLayer
@@ -46,7 +47,7 @@ def varlen_collate_fn(batch):
     }
 
 def load_and_preprocess_data(max_length=256):
-    dataset = load_dataset("skeskinen/TinyStories-hf", split="train[:10%]")
+    dataset = load_dataset("skeskinen/TinyStories-hf", split="train[:25%]")
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
 
@@ -116,13 +117,14 @@ def build_weight_decay_optm(model, learning_rate):
     for name, param in model.named_parameters():
         if not param.requires_grad:
             continue
-
         module = model.get_submodule('.'.join(name.split('.')[:-1]))
-
         if isinstance(module, ZeroCenteredRMSNorm):
             zero_centered_rmsnorm_params.append(param)
         elif isinstance(module, TverskyLayer):
-            if 'features' in name or 'prototypes' in name:
+            param_name = name.split('.')[-1]
+            if param_name in ['alpha', 'beta', 'theta']:
+                decay_params.append(param)
+            else:
                 tversky_params.append(param)
         elif any(exclude in name for exclude in [
             'bias', 'embedding', 'output_layer', 'norm.weight',
@@ -145,11 +147,10 @@ def build_weight_decay_optm(model, learning_rate):
     # The undecayed params are for our large embeddings mostly that don't seem to benefit from weight decay.
     return torch.optim.Adam([
         {'params': zero_centered_rmsnorm_params, 'weight_decay': 1e-4},
-        {'params': tversky_params, 'weight_decay': 2e-4},
+        {'params': tversky_params, 'weight_decay': 4e-4},
         {'params': decay_params, 'weight_decay': 1e-5},
         {'params': no_decay_params, 'weight_decay': 0.0}
     ], lr=learning_rate, eps=1e-16)
-
 
 class CosineWarmupScheduler:
     def __init__(self, optimizer, warmup_steps=25, total_steps=None, peak_lr=1e-4, min_lr=1e-6):
@@ -172,10 +173,19 @@ class CosineWarmupScheduler:
         self.step_count += 1
         return lr
 
-def train(model, train_dataset, tokenizer, num_epochs=1, batch_size=16, learning_rate=3e-4):
+def train(model, train_dataset, tokenizer, num_epochs=1, batch_size=24, learning_rate=3e-4):
     device = torch.device("cuda")
     model.to(device)
-    optimizer =  build_weight_decay_optm(model, learning_rate)
+    optimizer = build_weight_decay_optm(model, learning_rate)
+
+    logger = TBLogger(
+        log_dir='logs/current_run',
+        flush_secs=10,
+        enable_detailed_logging=True,
+        detailed_frequency=50
+    )
+
+    count_parameters_layerwise(model)
 
     train_loader = DataLoader(
         train_dataset,
@@ -211,20 +221,39 @@ def train(model, train_dataset, tokenizer, num_epochs=1, batch_size=16, learning
 
             loss.backward()
             optimizer.step()
-
             scheduler.step()
 
             total_loss += loss.item()
-            global_step += 1
+            num_tokens = input_ids.size(0)
+            epoch_tokens += num_tokens
 
-            epoch_tokens += input_ids.size(0)
+            logger.log_training_metrics(
+                loss=loss,
+                optimizer=optimizer,
+                global_step=global_step,
+                epoch=epoch,
+                batch_idx=batch_idx,
+                num_tokens=num_tokens
+            )
+
+            logger.log({}, step=global_step, model=model, detailed_logging=False)
+
+            global_step += 1
 
             if global_step % 20 == 0:
                 avg_seq_len = sum(sequence_lengths) / len(sequence_lengths)
-                print(f"Step {global_step}, Loss: {loss.item():.4f}, Avg Seq Len: {avg_seq_len:.1f}, Total Tokens: {input_ids.size(0)}")
+                print(f"Step {global_step}, Loss: {loss.item():.4f}, Avg Seq Len: {avg_seq_len:.1f}, Tokens: {num_tokens}")
 
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{num_epochs}, Average Loss: {avg_loss:.4f}, Epoch Total Tokens: {epoch_tokens}")
+
+        logger.log({
+            'epoch/avg_loss': avg_loss,
+            'epoch/total_tokens': epoch_tokens
+        }, step=global_step)
+
+    logger.close()
+    print(f"\nTraining complete! Logs saved to: {logger.base_log_dir}")
 
 def main():
     config = ModelConfig()
@@ -233,8 +262,9 @@ def main():
     model = CoolLanguageModelWowExclamationMark(config)
 
     model.compile(
-        #mode="reduce-overhead",
         backend="aot_eager_decomp_partition",
+        dynamic=True,
+        fullgraph=True
     )
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 

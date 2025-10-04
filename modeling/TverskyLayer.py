@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from einops import rearrange
 
 class TverskyLayer(nn.Module):
     def __init__(self,
@@ -44,16 +43,15 @@ class TverskyLayer(nn.Module):
         if self.prototype_init is not None:
             self.prototype_init(self.prototypes)
 
-        # From the paper:
-        # We observed that α > β in trained Tversky neural networks...
-        # So we might as well help them out.
-        nn.init.uniform_(self.alpha, 0.004, 0.12)
-        nn.init.uniform_(self.beta, 0.001, 0.004)
-        nn.init.uniform_(self.theta, 0.002, 0.06)
+        #nn.init.uniform_(self.alpha, 0.0004, 0.012)
+        #nn.init.uniform_(self.beta, -0.004, 0.004)
+        #nn.init.uniform_(self.theta, -.001, 0.001)
 
     # Shifted indicator since we need a differentiable signal > 0 but binary mask is not such a thing.
     def indicator(self, x):
-        return (torch.tanh(self.approximate_sharpness * x) + 1) / 2
+        sigma = (torch.tanh(self.approximate_sharpness * x) + 1) * 0.5
+        weighted = x * sigma
+        return weighted, sigma
 
     # Ignorematch with Product intersections
     def forward(self, x):
@@ -63,18 +61,17 @@ class TverskyLayer(nn.Module):
         A = x @ self.features.T          # [B, F]
         Pi = self.prototypes @ self.features.T  # [P, F]
 
-        sigma_A = self.indicator(A)      # [B, F]
-        sigma_Pi = self.indicator(Pi)    # [P, F]
-
-        weighted_A = A * sigma_A         # [B, F]
-        weighted_Pi = Pi * sigma_Pi      # [P, F]
+        sigma_A, weighted_A = self.indicator(A)      # [B, F]
+        sigma_Pi, weighted_Pi = self.indicator(Pi)    # [P, F]
 
         common = weighted_A @ weighted_Pi.T            # [B,F] @ [F,P] = [B,P]
-
-        # This is an approximation that will not distinguish highly similar features but
-        # is actually tractable for networks larger than a breadbox.
         distinctive_A = weighted_A @ (1 - sigma_Pi).T  # [B,F] @ [F,P] = [B,P]
         distinctive_B = (1 - sigma_A) @ weighted_Pi.T  # [B,F] @ [F,P] = [B,P]
 
+        # Fix for amp, seems to get confused if we don't specifically cast these.
+        alpha = self.alpha.to(common.dtype)
+        beta = self.beta.to(common.dtype)
+        theta = self.theta.to(common.dtype)
+
         #  S = θ·C - α·D_A - β·D_B
-        return self.theta * common - self.alpha * distinctive_A - self.beta * distinctive_B # [B, P]
+        return theta * common - alpha * distinctive_A - beta * distinctive_B # [B, P]

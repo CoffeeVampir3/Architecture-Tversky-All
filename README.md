@@ -6,6 +6,16 @@ Paper: https://arxiv.org/abs/2506.11035
 
 Testable weights: https://huggingface.co/Blackroot/Tversky-All-Test-100MIsh/tree/main
 
+### ~
+
+XOR test: https://github.com/CoffeeVampir3/Tverysky-Torch
+
+Cifar10: https://github.com/CoffeeVampir3/Tversky-Cifar10/tree/main
+
+Language model: https://github.com/CoffeeVampir3/Architecture-Tversky-All
+
+### ~
+
 ### Vibe Check:
 After substantial experimenting with this I'm convinced it will become a mainstay in some styles of neural networks. It is computable, nearly or as fast as equivalent linears, has nice properties as a result of sharable features and the paper claims they're interpretable which is a huge boon over linear layers. In some of my tests tversky layers soundly beats equivalent linears, and in most cases the outcomes are at least similar. Anyone interest in neural networks should at least give these a serious consideration, especially because they're simple and easy. Feel free to use the TverskyLayer code as you see fit.
 

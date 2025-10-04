@@ -19,3 +19,4 @@ logs/
 checkpoints/
 model.safetensors
 models/
+logs/
